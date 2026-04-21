@@ -3,6 +3,9 @@ const OpenAI = require("openai");
 
 const apiKey = process.env.OPENAI_API_KEY;
 
+console.log("OPENAI_API_KEY prefix:", apiKey ? apiKey.slice(0, 12) : "undefined");
+console.log("OPENAI_API_KEY length:", apiKey ? apiKey.length : 0);
+
 if (!apiKey) {
     throw new Error("OPENAI_API_KEY is not set");
 }
