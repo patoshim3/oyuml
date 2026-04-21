@@ -1,9 +1,23 @@
 const fs = require("fs");
 const OpenAI = require("openai");
 
+const apiKey = process.env.OPENAI_API_KEY;
+
+if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not set");
+}
+
+if (apiKey.startsWith("sk-or-v1")) {
+    throw new Error(
+        "OPENAI_API_KEY is an OpenRouter key. For this code, set a real OpenAI API key in Render."
+    );
+}
+
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey,
 });
+
+const MODEL = process.env.OPENAI_MODEL || "gpt-audio-mini";
 
 const KAZAKH_LETTERS = [
     "а","ә","б","в","г","ғ","д","е","ё","ж","з","и","й","к","қ","л",
@@ -12,6 +26,16 @@ const KAZAKH_LETTERS = [
 ];
 
 function safeParseJson(text) {
+    if (!text) return null;
+
+    if (typeof text !== "string") {
+        try {
+            return JSON.parse(JSON.stringify(text));
+        } catch (_) {
+            return null;
+        }
+    }
+
     try {
         return JSON.parse(text);
     } catch (e) {
@@ -27,12 +51,29 @@ function safeParseJson(text) {
     }
 }
 
+function clampConfidence(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    if (num < 0) return 0;
+    if (num > 1) return 1;
+    return num;
+}
+
 async function predictLetterFromAudio(wavPath) {
+    if (!wavPath) {
+        throw new Error("wavPath is required");
+    }
+
+    if (!fs.existsSync(wavPath)) {
+        throw new Error(`Audio file not found: ${wavPath}`);
+    }
+
     const audioBuffer = fs.readFileSync(wavPath);
     const base64Audio = audioBuffer.toString("base64");
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-audio-mini",
+        model: MODEL,
+        temperature: 0,
         messages: [
             {
                 role: "developer",
@@ -55,7 +96,7 @@ Rules:
 - no explanation
 - JSON only
 - confidence must be from 0 to 1
-        `.trim()
+                `.trim()
             },
             {
                 role: "user",
@@ -73,11 +114,27 @@ Rules:
                     }
                 ]
             }
-        ],
-        temperature: 0
+        ]
     });
 
-    const rawText = completion?.choices?.[0]?.message?.content || "";
+    const message = completion?.choices?.[0]?.message;
+    const rawContent = message?.content;
+
+    let rawText = "";
+
+    if (typeof rawContent === "string") {
+        rawText = rawContent;
+    } else if (Array.isArray(rawContent)) {
+        rawText = rawContent
+            .map((item) => {
+                if (typeof item === "string") return item;
+                if (item?.type === "text" && item?.text) return item.text;
+                return "";
+            })
+            .join("\n")
+            .trim();
+    }
+
     const parsed = safeParseJson(rawText);
 
     if (!parsed || !parsed.predicted_letter) {
@@ -87,9 +144,19 @@ Rules:
         };
     }
 
+    const predictedLetter = String(parsed.predicted_letter).trim().toLowerCase();
+    const confidence = clampConfidence(parsed.confidence);
+
+    if (!KAZAKH_LETTERS.includes(predictedLetter)) {
+        return {
+            predicted_letter: null,
+            confidence: 0
+        };
+    }
+
     return {
-        predicted_letter: String(parsed.predicted_letter).trim().toLowerCase(),
-        confidence: Number(parsed.confidence) || 0
+        predicted_letter: predictedLetter,
+        confidence
     };
 }
 
