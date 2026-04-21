@@ -9,7 +9,7 @@ if (!apiKey) {
 
 if (apiKey.startsWith("sk-or-v1")) {
     throw new Error(
-        "OPENAI_API_KEY is an OpenRouter key. For this code, set a real OpenAI API key in Render."
+        "OPENAI_API_KEY is an OpenRouter key. Set a real OpenAI API key in Render Environment Variables."
     );
 }
 
