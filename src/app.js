@@ -1,18 +1,21 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
+
+const alphabetApiRouter = require("./alphabet-api/controller");
+const speakingApiRouter = require("./speaking-api/controller");
+const listeningApiRouter = require("./listening-api/controller");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-app.get("/health", (req, res) => {
-    res.json({
-        status: "ok",
-        service: "ml-service"
-    });
+app.use("/api/speaking-api", speakingApiRouter);
+app.use("/api/listening-api", listeningApiRouter);
+app.use("/api/alphabet", alphabetApiRouter);
+
+app.listen(3000, () => {
+    console.log("Server started on port 3000");
 });
-
-app.use("/api/forecast", forecastRoute);
-
-module.exports = app;
