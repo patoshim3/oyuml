@@ -2,12 +2,12 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const alphabetApiRouter = require("./alphabet-api/controller");
-
+const speakingApiRouter = require("./speaking-api/controller");
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-
+app.use("/api/speaking-api", speakingApiRouter);
 app.use("/api/alphabet", alphabetApiRouter);
 
 app.listen(3000, () => {
